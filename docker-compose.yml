@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: fibrepulse-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Ktyuv01!***
+      POSTGRES_DB: fibrepulse
+    ports:
+      - "5432:5432"
+    volumes:
+      - fibrepulse_postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+volumes:
+  fibrepulse_postgres_data:

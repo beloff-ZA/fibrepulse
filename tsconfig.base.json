@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@fibrepulse/db": ["packages/db/src/index.ts"],
+      "@fibrepulse/types": ["packages/types/src/index.ts"],
+      "@fibrepulse/config": ["packages/config/src/index.ts"],
+      "@fibrepulse/utils": ["packages/utils/src/index.ts"]
+    }
+  }
+}
