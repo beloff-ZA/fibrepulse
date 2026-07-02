@@ -12,14 +12,34 @@ type SourceHealthStatus =
   | "offline"
   | "unknown";
 
+type VerificationStatus =
+  | "verified"
+  | "candidate"
+  | "rejected"
+  | "unsupported";
+
+type MonitoringMode =
+  | "full"
+  | "observation"
+  | "probe_only"
+  | "disabled";
+
 type ProviderSummary = {
   provider: string;
   provider_type: string;
-  asn: number;
+
+  verification_status: VerificationStatus;
+  monitoring_mode: MonitoringMode;
+  incident_enabled: boolean;
+
+  asn: number | null;
+  asns: number[];
+
   prefix_count: number;
   valid_count: number;
   invalid_count: number;
   unknown_count: number;
+
   last_checked_at: string | null;
   overall_status: HealthStatus;
 };
@@ -206,6 +226,56 @@ function sourceDotClasses(
     default:
       return "bg-slate-400";
   }
+}
+
+function verificationClasses(
+  status: VerificationStatus,
+): string {
+  switch (status) {
+    case "verified":
+      return "border-cyan-800 bg-cyan-950/40 text-cyan-200";
+
+    case "candidate":
+      return "border-violet-800 bg-violet-950/40 text-violet-200";
+
+    case "unsupported":
+      return "border-slate-700 bg-slate-800 text-slate-300";
+
+    case "rejected":
+    default:
+      return "border-red-900 bg-red-950/40 text-red-300";
+  }
+}
+
+function monitoringModeLabel(
+  mode: MonitoringMode,
+): string {
+  switch (mode) {
+    case "full":
+      return "Full monitoring";
+
+    case "observation":
+      return "Observation";
+
+    case "probe_only":
+      return "Probe only";
+
+    case "disabled":
+    default:
+      return "Disabled";
+  }
+}
+
+function formatAsns(
+  asns: number[] | null | undefined,
+): string {
+  if (!asns || asns.length === 0) {
+    return "Not mapped";
+  }
+
+  return asns
+    .map((asn) => `AS${asn}`)
+    .join(", ");
 }
 
 function formatDate(
@@ -577,8 +647,7 @@ export default function App() {
             </h2>
 
             <p className="mt-1 text-sm text-slate-400">
-              Latest provider-level status across
-              monitored prefixes.
+              Current monitoring status for all visible South African FNOs.
             </p>
           </div>
 
@@ -588,6 +657,14 @@ export default function App() {
                 <tr className="text-slate-400">
                   <th className="px-4 py-3 font-medium">
                     Provider
+                  </th>
+
+                  <th className="px-4 py-3 font-medium">
+                    Verification
+                  </th>
+
+                  <th className="px-4 py-3 font-medium">
+                    Monitoring
                   </th>
 
                   <th className="px-4 py-3 font-medium">
@@ -621,52 +698,71 @@ export default function App() {
               </thead>
 
               <tbody className="divide-y divide-slate-800">
-                {data.summary.map(
-                  (provider) => (
-                    <tr
-                      key={`${provider.provider}-${provider.asn}`}
-                      className="text-slate-200"
-                    >
-                      <td className="whitespace-nowrap px-4 py-4 font-semibold">
-                        {provider.provider}
-                      </td>
+                {data.summary.map((provider) => (
+                  <tr
+                    key={provider.provider}
+                    className="text-slate-200"
+                  >
+                    <td className="whitespace-nowrap px-4 py-4 font-semibold">
+                      {provider.provider}
+                    </td>
 
-                      <td className="whitespace-nowrap px-4 py-4 text-slate-400">
-                        AS{provider.asn}
-                      </td>
-
-                      <td className="whitespace-nowrap px-4 py-4">
-                        <StatusBadge
-                          status={
-                            provider.overall_status
-                          }
-                        />
-                      </td>
-
-                      <td className="px-4 py-4">
-                        {provider.prefix_count}
-                      </td>
-
-                      <td className="px-4 py-4 text-emerald-400">
-                        {provider.valid_count}
-                      </td>
-
-                      <td className="px-4 py-4 text-red-400">
-                        {provider.invalid_count}
-                      </td>
-
-                      <td className="px-4 py-4 text-amber-400">
-                        {provider.unknown_count}
-                      </td>
-
-                      <td className="whitespace-nowrap px-4 py-4 text-slate-400">
-                        {formatDate(
-                          provider.last_checked_at,
+                    <td className="whitespace-nowrap px-4 py-4">
+                      <span
+                        className={[
+                          "inline-flex rounded-full border px-3 py-1 text-xs font-semibold",
+                          verificationClasses(
+                            provider.verification_status,
+                          ),
+                        ].join(" ")}
+                      >
+                        {statusLabel(
+                          provider.verification_status,
                         )}
-                      </td>
-                    </tr>
-                  ),
-                )}
+                      </span>
+                    </td>
+
+                    <td className="whitespace-nowrap px-4 py-4 text-slate-300">
+                      {monitoringModeLabel(
+                        provider.monitoring_mode,
+                      )}
+                    </td>
+
+                    <td className="whitespace-nowrap px-4 py-4 font-mono text-xs text-slate-400">
+                      {formatAsns(provider.asns)}
+                    </td>
+
+                    <td className="whitespace-nowrap px-4 py-4">
+                      <StatusBadge
+                        status={provider.overall_status}
+                      />
+                    </td>
+
+                    <td className="px-4 py-4">
+                      {provider.prefix_count}
+                    </td>
+
+                    <td className="px-4 py-4 text-emerald-400">
+                      {provider.valid_count}
+                    </td>
+
+                    <td className="px-4 py-4 text-red-400">
+                      {provider.invalid_count}
+                    </td>
+
+                    <td className="px-4 py-4 text-amber-400">
+                      {provider.unknown_count}
+                    </td>
+
+                    <td className="whitespace-nowrap px-4 py-4 text-slate-400">
+                      {provider.last_checked_at
+                        ? formatDate(
+                            provider.last_checked_at,
+                          )
+                        : "Not monitored yet"}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

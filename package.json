@@ -10,7 +10,10 @@
     "db:migrate": "tsx packages/db/src/migrate.ts",
     "db:seed": "tsx packages/db/src/seed.ts",
     "check": "tsc --noEmit",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "fno:import": "tsx services/bgp-monitor/src/importFnoRegistry.ts",
+    "fno:discover": "tsx services/bgp-monitor/src/discoverFnoPrefixes.ts",
+    "fno:prefixes:import": "tsx services/bgp-monitor/src/importFnoPrefixes.ts"
   },
   "workspaces": [
     "apps/*",

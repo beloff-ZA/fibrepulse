@@ -25,49 +25,107 @@ app.get("/health", (_req, res) => {
 app.get("/api/bgp/summary", async (_req, res, next) => {
   try {
     const items = await query(`
-      select
-        provider,
-        provider_type,
-        asn,
+      with bgp_summary as (
+        select
+          provider,
 
-        count(*)::int as prefix_count,
+          count(*)::int as prefix_count,
 
-        count(*) filter (
-          where overall_status = 'valid'
-        )::int as valid_count,
+          count(*) filter (
+            where overall_status = 'valid'
+          )::int as valid_count,
 
-        count(*) filter (
-          where overall_status = 'invalid'
-        )::int as invalid_count,
-
-        count(*) filter (
-          where overall_status = 'unknown'
-             or overall_status is null
-        )::int as unknown_count,
-
-        max(checked_at) as last_checked_at,
-
-        case
-          when count(*) filter (
+          count(*) filter (
             where overall_status = 'invalid'
-          ) > 0 then 'invalid'
+          )::int as invalid_count,
 
-          when count(*) filter (
+          count(*) filter (
             where overall_status = 'unknown'
                or overall_status is null
-          ) > 0 then 'unknown'
+          )::int as unknown_count,
 
-          else 'valid'
+          max(checked_at) as last_checked_at,
+
+          case
+            when count(*) filter (
+              where overall_status = 'invalid'
+            ) > 0 then 'invalid'
+
+            when count(*) filter (
+              where overall_status = 'unknown'
+                 or overall_status is null
+            ) > 0 then 'unknown'
+
+            else 'valid'
+          end as overall_status
+
+        from latest_bgp_status
+
+        group by provider
+      )
+
+      select
+        p.name as provider,
+        p.provider_type,
+        p.verification_status,
+        p.monitoring_mode,
+        p.incident_enabled,
+
+        (
+          select min(pa.asn)
+          from provider_asns pa
+          where pa.provider_id = p.id
+        ) as asn,
+
+        coalesce(
+          (
+            select array_agg(
+              pa.asn
+              order by pa.asn
+            )
+            from provider_asns pa
+            where pa.provider_id = p.id
+          ),
+          '{}'::bigint[]
+        ) as asns,
+
+        coalesce(
+          bs.prefix_count,
+          0
+        )::int as prefix_count,
+
+        coalesce(
+          bs.valid_count,
+          0
+        )::int as valid_count,
+
+        coalesce(
+          bs.invalid_count,
+          0
+        )::int as invalid_count,
+
+        coalesce(
+          bs.unknown_count,
+          0
+        )::int as unknown_count,
+
+        bs.last_checked_at,
+
+        case
+          when bs.provider is null
+            then 'unknown'
+          else bs.overall_status
         end as overall_status
 
-      from latest_bgp_status
+      from providers p
 
-      group by
-        provider,
-        provider_type,
-        asn
+      left join bgp_summary bs
+        on bs.provider = p.name
 
-      order by provider;
+      where p.provider_type = 'FNO'
+        and p.display_enabled = true
+
+      order by p.name;
     `);
 
     res.json({
@@ -633,64 +691,6 @@ app.get(
   "/api/dashboard/bgp",
   async (_req, res, next) => {
     try {
-      const summary = await query<{
-        provider: string;
-        provider_type: string;
-        asn: number;
-        prefix_count: number;
-        valid_count: number;
-        invalid_count: number;
-        unknown_count: number;
-        last_checked_at: string | null;
-        overall_status:
-          | "valid"
-          | "invalid"
-          | "unknown";
-      }>(`
-        select
-          provider,
-          provider_type,
-          asn,
-
-          count(*)::int as prefix_count,
-
-          count(*) filter (
-            where overall_status = 'valid'
-          )::int as valid_count,
-
-          count(*) filter (
-            where overall_status = 'invalid'
-          )::int as invalid_count,
-
-          count(*) filter (
-            where overall_status = 'unknown'
-               or overall_status is null
-          )::int as unknown_count,
-
-          max(checked_at) as last_checked_at,
-
-          case
-            when count(*) filter (
-              where overall_status = 'invalid'
-            ) > 0 then 'invalid'
-
-            when count(*) filter (
-              where overall_status = 'unknown'
-                 or overall_status is null
-            ) > 0 then 'unknown'
-
-            else 'valid'
-          end as overall_status
-
-        from latest_bgp_status
-
-        group by
-          provider,
-          provider_type,
-          asn
-
-        order by provider;
-      `);
 
       const openIncidents = await query(`
         select *
@@ -698,6 +698,141 @@ app.get(
         where status = 'open'
         order by started_at desc
         limit 20;
+      `);
+      const summary = await query<{
+        provider: string;
+        provider_type: string;
+
+        verification_status:
+          | "verified"
+          | "candidate"
+          | "rejected"
+          | "unsupported";
+
+        monitoring_mode:
+          | "full"
+          | "observation"
+          | "probe_only"
+          | "disabled";
+
+        incident_enabled: boolean;
+
+        asn: number | null;
+        asns: number[];
+
+        prefix_count: number;
+        valid_count: number;
+        invalid_count: number;
+        unknown_count: number;
+
+        last_checked_at: string | null;
+
+        overall_status:
+          | "valid"
+          | "invalid"
+          | "unknown";
+      }>(`
+        with bgp_summary as (
+          select
+            provider,
+
+            count(*)::int as prefix_count,
+
+            count(*) filter (
+              where overall_status = 'valid'
+            )::int as valid_count,
+
+            count(*) filter (
+              where overall_status = 'invalid'
+            )::int as invalid_count,
+
+            count(*) filter (
+              where overall_status = 'unknown'
+                 or overall_status is null
+            )::int as unknown_count,
+
+            max(checked_at) as last_checked_at,
+
+            case
+              when count(*) filter (
+                where overall_status = 'invalid'
+              ) > 0 then 'invalid'
+
+              when count(*) filter (
+                where overall_status = 'unknown'
+                   or overall_status is null
+              ) > 0 then 'unknown'
+
+              else 'valid'
+            end as overall_status
+
+          from latest_bgp_status
+
+          group by provider
+        )
+
+        select
+          p.name as provider,
+          p.provider_type,
+          p.verification_status,
+          p.monitoring_mode,
+          p.incident_enabled,
+
+          (
+            select min(pa.asn)
+            from provider_asns pa
+            where pa.provider_id = p.id
+          ) as asn,
+
+          coalesce(
+            (
+              select array_agg(
+                pa.asn
+                order by pa.asn
+              )
+              from provider_asns pa
+              where pa.provider_id = p.id
+            ),
+            '{}'::bigint[]
+          ) as asns,
+
+          coalesce(
+            bs.prefix_count,
+            0
+          )::int as prefix_count,
+
+          coalesce(
+            bs.valid_count,
+            0
+          )::int as valid_count,
+
+          coalesce(
+            bs.invalid_count,
+            0
+          )::int as invalid_count,
+
+          coalesce(
+            bs.unknown_count,
+            0
+          )::int as unknown_count,
+
+          bs.last_checked_at,
+
+          case
+            when bs.provider is null
+              then 'unknown'
+            else bs.overall_status
+          end as overall_status
+
+        from providers p
+
+        left join bgp_summary bs
+          on bs.provider = p.name
+
+        where p.provider_type = 'FNO'
+          and p.display_enabled = true
+
+        order by p.name;
       `);
 
       const recentChanges = await query(`

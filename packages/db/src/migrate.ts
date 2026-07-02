@@ -14,6 +14,82 @@ async function migrate() {
   `);
 
   await db.query(`
+  alter table providers
+  add column if not exists verification_status text
+    not null default 'candidate'
+    check (
+      verification_status in (
+        'verified',
+        'candidate',
+        'rejected',
+        'unsupported'
+      )
+    );
+  `);
+
+  await db.query(`
+  alter table providers
+  add column if not exists monitoring_mode text
+    not null default 'observation'
+    check (
+      monitoring_mode in (
+        'full',
+        'observation',
+        'probe_only',
+        'disabled'
+      )
+    );
+  `);
+
+  await db.query(`
+  alter table providers
+  add column if not exists display_enabled boolean
+    not null default true;
+  `);
+
+  await db.query(`
+  alter table providers
+  add column if not exists incident_enabled boolean
+    not null default false;
+  `);
+
+  await db.query(`
+  alter table providers
+  add column if not exists website_url text;
+  `);
+
+  await db.query(`
+  alter table providers
+  add column if not exists status_page_url text;
+  `);
+
+  await db.query(`
+  alter table providers
+  add column if not exists notes text;
+  `);
+
+  await db.query(`
+  alter table providers
+  add column if not exists updated_at timestamptz
+    not null default now();
+  `);
+
+  await db.query(`
+  create index if not exists idx_providers_verification_status
+  on providers(verification_status);
+  `);
+
+  await db.query(`
+  create index if not exists idx_providers_monitoring_mode
+  on providers(monitoring_mode);
+  `);
+
+  await db.query(`
+  create index if not exists idx_providers_display_enabled
+  on providers(display_enabled);
+  `);
+
+  await db.query(`
     create table if not exists provider_asns (
       id bigserial primary key,
       provider_id bigint references providers(id) on delete cascade,
@@ -35,6 +111,15 @@ async function migrate() {
       created_at timestamptz default now(),
       unique(prefix, expected_origin_asn)
     );
+  `);
+
+  await db.query(`
+  create unique index if not exists
+    idx_monitored_prefixes_provider_asn_prefix
+  on monitored_prefixes (
+    provider_asn_id,
+    prefix
+  );
   `);
 
   await db.query(`
@@ -176,26 +261,36 @@ async function migrate() {
   `);
 
   await db.query(`
-    create or replace view latest_bgp_status as
-    select distinct on (mp.id)
-      p.name as provider,
-      p.provider_type,
-      pa.asn,
-      mp.prefix::text as prefix,
-      bc.bgp_status,
-      bc.rpki_status,
-      bc.overall_status,
-      bc.observed_origin_asns,
-      bc.message,
-      bc.source_confidence,
-      bc.source_agreement,
-      bc.source_score,
-      bc.checked_at
-    from monitored_prefixes mp
-    join provider_asns pa on pa.id = mp.provider_asn_id
-    join providers p on p.id = pa.provider_id
-    left join bgp_checks bc on bc.monitored_prefix_id = mp.id
-    order by mp.id, bc.checked_at desc;
+  drop view if exists latest_bgp_status;
+  `);
+
+  await db.query(`
+  create view latest_bgp_status as
+  select distinct on (mp.id)
+    p.name as provider,
+    p.provider_type,
+    pa.asn,
+    mp.prefix::text as prefix,
+    bc.bgp_status,
+    bc.rpki_status,
+    bc.overall_status,
+    bc.observed_origin_asns,
+    bc.message,
+    bc.source_confidence,
+    bc.source_agreement,
+    bc.source_score,
+    bc.checked_at
+  from monitored_prefixes mp
+  join provider_asns pa
+    on pa.id = mp.provider_asn_id
+  join providers p
+    on p.id = pa.provider_id
+  left join bgp_checks bc
+    on bc.monitored_prefix_id = mp.id
+  where mp.monitor_enabled = true
+  order by
+    mp.id,
+    bc.checked_at desc;
   `);
 
   console.log("Migrations complete.");
