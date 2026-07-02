@@ -88,6 +88,50 @@ async function migrate() {
   `);
 
   await db.query(`
+  create table if not exists source_health (
+    id bigserial primary key,
+
+    source_name text not null unique,
+
+    status text not null default 'unknown'
+      check (
+        status in (
+          'healthy',
+          'degraded',
+          'offline',
+          'unknown'
+        )
+      ),
+
+    last_success_at timestamptz,
+    last_failure_at timestamptz,
+
+    consecutive_failures integer not null default 0
+      check (consecutive_failures >= 0),
+
+    last_error text,
+
+    response_time_ms integer
+      check (
+        response_time_ms is null
+        or response_time_ms >= 0
+      ),
+
+    updated_at timestamptz not null default now()
+  );
+  `);
+
+  await db.query(`
+  create index if not exists idx_source_health_status
+  on source_health(status);
+  `);
+
+  await db.query(`
+  create index if not exists idx_source_health_updated_at
+  on source_health(updated_at desc);
+  `);
+
+  await db.query(`
     create index if not exists idx_bgp_incidents_prefix_status
     on bgp_incidents(monitored_prefix_id, status);
   `);

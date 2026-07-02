@@ -33,6 +33,7 @@ export type SourceResult = {
   confidence: number;
   observedOriginAsns: number[];
   message: string;
+  responseTimeMs: number;
   error?: string;
   raw?: unknown;
 };

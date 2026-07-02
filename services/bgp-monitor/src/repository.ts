@@ -4,6 +4,7 @@ import type {
   MonitoredPrefix,
   SourceAgreement,
   SourceConfidence,
+  SourceName,
 } from "./types.js";
 
 export async function getMonitoredPrefixes(): Promise<MonitoredPrefix[]> {
@@ -188,6 +189,120 @@ export async function resolveIncident(input: {
       input.currentStatus,
     ],
   );
+}
+
+export async function recordSourceSuccess(input: {
+  sourceName: SourceName;
+  responseTimeMs: number;
+}): Promise<void> {
+  await db.query(
+    `
+    insert into source_health (
+      source_name,
+      status,
+      last_success_at,
+      consecutive_failures,
+      last_error,
+      response_time_ms,
+      updated_at
+    )
+    values (
+      $1,
+      'healthy',
+      now(),
+      0,
+      null,
+      $2,
+      now()
+    )
+    on conflict (source_name)
+    do update set
+      status = 'healthy',
+      last_success_at = now(),
+      consecutive_failures = 0,
+      last_error = null,
+      response_time_ms = excluded.response_time_ms,
+      updated_at = now()
+    `,
+    [
+      input.sourceName,
+      Math.max(0, Math.round(input.responseTimeMs)),
+    ],
+  );
+}
+
+export async function recordSourceFailure(input: {
+  sourceName: SourceName;
+  error: string;
+  responseTimeMs: number;
+}): Promise<void> {
+  await db.query(
+    `
+    insert into source_health (
+      source_name,
+      status,
+      last_failure_at,
+      consecutive_failures,
+      last_error,
+      response_time_ms,
+      updated_at
+    )
+    values (
+      $1,
+      'degraded',
+      now(),
+      1,
+      $2,
+      $3,
+      now()
+    )
+    on conflict (source_name)
+    do update set
+      status = case
+        when source_health.consecutive_failures + 1 >= 3
+          then 'offline'
+        else 'degraded'
+      end,
+      last_failure_at = now(),
+      consecutive_failures =
+        source_health.consecutive_failures + 1,
+      last_error = excluded.last_error,
+      response_time_ms = excluded.response_time_ms,
+      updated_at = now()
+    `,
+    [
+      input.sourceName,
+      input.error,
+      Math.max(0, Math.round(input.responseTimeMs)),
+    ],
+  );
+}
+
+export async function getSourceHealth(): Promise<
+  Array<{
+    source_name: SourceName;
+    status: "healthy" | "degraded" | "offline" | "unknown";
+    last_success_at: string | null;
+    last_failure_at: string | null;
+    consecutive_failures: number;
+    last_error: string | null;
+    response_time_ms: number | null;
+    updated_at: string;
+  }>
+> {
+  return query(`
+    select
+      source_name,
+      status,
+      last_success_at,
+      last_failure_at,
+      consecutive_failures,
+      last_error,
+      response_time_ms,
+      updated_at
+    from source_health
+    order by source_name
+  `);
 }
 
 export { db };

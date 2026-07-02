@@ -1,21 +1,53 @@
 import axios from "axios";
 import { config } from "@fibrepulse/config";
-import type { SourceResult } from "./types.js";
+
+import type {
+  SourceName,
+  SourceResult,
+} from "./types.js";
+
 import {
   normaliseRpkiState,
   numberOrNull,
   uniqueSortedNumbers,
 } from "./sourceUtils.js";
 
+function errorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const parts = [
+      error.response?.status
+        ? `HTTP ${error.response.status}`
+        : null,
+      error.response?.statusText || null,
+      error.code || null,
+      error.message || null,
+    ].filter(Boolean);
+
+    return parts.join(" - ") || "Unknown Axios error";
+  }
+
+  if (error instanceof Error) {
+    return error.message || error.name;
+  }
+
+  return String(error || "Unknown source error");
+}
+
 export async function checkRipeBgpState(
   prefix: string,
   expectedOriginAsn: number,
 ): Promise<SourceResult> {
+  const sourceName: SourceName =
+    "ripestat_bgp_state";
+
+  const startedAt = Date.now();
+
   try {
     const response = await axios.get(
       "https://stat.ripe.net/data/bgp-state/data.json",
       {
         timeout: 15_000,
+
         params: {
           resource: prefix,
           sourceapp: config.SOURCE_APP,
@@ -31,14 +63,18 @@ export async function checkRipeBgpState(
         const path = item?.path;
 
         if (Array.isArray(path) && path.length > 0) {
-          const origin = numberOrNull(path[path.length - 1]);
+          const origin = numberOrNull(
+            path[path.length - 1],
+          );
 
           if (origin !== null) {
             observed.push(origin);
           }
         }
 
-        const directOrigin = numberOrNull(item?.origin);
+        const directOrigin = numberOrNull(
+          item?.origin,
+        );
 
         if (directOrigin !== null) {
           observed.push(directOrigin);
@@ -46,25 +82,30 @@ export async function checkRipeBgpState(
       }
     }
 
-    const observedOriginAsns = uniqueSortedNumbers(observed);
+    const observedOriginAsns =
+      uniqueSortedNumbers(observed);
 
     if (observedOriginAsns.length === 0) {
       return {
-        source: "ripestat_bgp_state",
+        source: sourceName,
         ok: true,
         status: "invalid",
         confidence: 0.75,
         observedOriginAsns,
-        message: "RIPEstat BGP State did not observe the prefix.",
+        message:
+          "RIPEstat BGP State did not observe the prefix.",
+        responseTimeMs: Date.now() - startedAt,
       };
     }
 
-    const status = observedOriginAsns.includes(expectedOriginAsn)
+    const status = observedOriginAsns.includes(
+      expectedOriginAsn,
+    )
       ? "valid"
       : "invalid";
 
     return {
-      source: "ripestat_bgp_state",
+      source: sourceName,
       ok: true,
       status,
       confidence: 0.9,
@@ -74,16 +115,19 @@ export async function checkRipeBgpState(
           ? "RIPEstat BGP State observed the expected origin ASN."
           : "RIPEstat BGP State observed an unexpected origin ASN.",
       raw: response.data,
+      responseTimeMs: Date.now() - startedAt,
     };
   } catch (error) {
     return {
-      source: "ripestat_bgp_state",
+      source: sourceName,
       ok: false,
       status: "unknown",
       confidence: 0,
       observedOriginAsns: [],
-      message: "RIPEstat BGP State check failed.",
-      error: error instanceof Error ? error.message : "Unknown error",
+      message:
+        "RIPEstat BGP State check failed.",
+      error: errorMessage(error),
+      responseTimeMs: Date.now() - startedAt,
     };
   }
 }
@@ -92,11 +136,17 @@ export async function checkRipePrefixOverview(
   prefix: string,
   expectedOriginAsn: number,
 ): Promise<SourceResult> {
+  const sourceName: SourceName =
+    "ripestat_prefix_overview";
+
+  const startedAt = Date.now();
+
   try {
     const response = await axios.get(
       "https://stat.ripe.net/data/prefix-overview/data.json",
       {
         timeout: 15_000,
+
         params: {
           resource: prefix,
           sourceapp: config.SOURCE_APP,
@@ -109,7 +159,9 @@ export async function checkRipePrefixOverview(
 
     if (Array.isArray(asns)) {
       for (const item of asns) {
-        const asn = numberOrNull(item?.asn ?? item);
+        const asn = numberOrNull(
+          item?.asn ?? item,
+        );
 
         if (asn !== null) {
           observed.push(asn);
@@ -117,25 +169,30 @@ export async function checkRipePrefixOverview(
       }
     }
 
-    const observedOriginAsns = uniqueSortedNumbers(observed);
+    const observedOriginAsns =
+      uniqueSortedNumbers(observed);
 
     if (observedOriginAsns.length === 0) {
       return {
-        source: "ripestat_prefix_overview",
+        source: sourceName,
         ok: true,
         status: "invalid",
         confidence: 0.7,
         observedOriginAsns,
-        message: "RIPEstat Prefix Overview found no announcing ASNs.",
+        message:
+          "RIPEstat Prefix Overview found no announcing ASNs.",
+        responseTimeMs: Date.now() - startedAt,
       };
     }
 
-    const status = observedOriginAsns.includes(expectedOriginAsn)
+    const status = observedOriginAsns.includes(
+      expectedOriginAsn,
+    )
       ? "valid"
       : "invalid";
 
     return {
-      source: "ripestat_prefix_overview",
+      source: sourceName,
       ok: true,
       status,
       confidence: 0.85,
@@ -145,16 +202,19 @@ export async function checkRipePrefixOverview(
           ? "RIPEstat Prefix Overview found the expected ASN."
           : "RIPEstat Prefix Overview found an unexpected ASN.",
       raw: response.data,
+      responseTimeMs: Date.now() - startedAt,
     };
   } catch (error) {
     return {
-      source: "ripestat_prefix_overview",
+      source: sourceName,
       ok: false,
       status: "unknown",
       confidence: 0,
       observedOriginAsns: [],
-      message: "RIPEstat Prefix Overview check failed.",
-      error: error instanceof Error ? error.message : "Unknown error",
+      message:
+        "RIPEstat Prefix Overview check failed.",
+      error: errorMessage(error),
+      responseTimeMs: Date.now() - startedAt,
     };
   }
 }
@@ -163,11 +223,17 @@ export async function checkRipeRpkiValidation(
   prefix: string,
   expectedOriginAsn: number,
 ): Promise<SourceResult> {
+  const sourceName: SourceName =
+    "ripestat_rpki_validation";
+
+  const startedAt = Date.now();
+
   try {
     const response = await axios.get(
       "https://stat.ripe.net/data/rpki-validation/data.json",
       {
         timeout: 15_000,
+
         params: {
           resource: `AS${expectedOriginAsn}`,
           prefix,
@@ -184,10 +250,11 @@ export async function checkRipeRpkiValidation(
     const status = normaliseRpkiState(statusRaw);
 
     return {
-      source: "ripestat_rpki_validation",
+      source: sourceName,
       ok: true,
       status,
-      confidence: status === "unknown" ? 0.55 : 0.95,
+      confidence:
+        status === "unknown" ? 0.55 : 0.95,
       observedOriginAsns: [expectedOriginAsn],
       message:
         status === "valid"
@@ -196,16 +263,19 @@ export async function checkRipeRpkiValidation(
             ? "RIPEstat RPKI marked the expected prefix and ASN as invalid."
             : "RIPEstat RPKI returned unknown or not found.",
       raw: response.data,
+      responseTimeMs: Date.now() - startedAt,
     };
   } catch (error) {
     return {
-      source: "ripestat_rpki_validation",
+      source: sourceName,
       ok: false,
       status: "unknown",
       confidence: 0,
       observedOriginAsns: [],
-      message: "RIPEstat RPKI validation check failed.",
-      error: error instanceof Error ? error.message : "Unknown error",
+      message:
+        "RIPEstat RPKI validation check failed.",
+      error: errorMessage(error),
+      responseTimeMs: Date.now() - startedAt,
     };
   }
 }
