@@ -1,0 +1,12 @@
+[Unit]
+Description=FibrePulse Official Status Poll
+After=network-online.target fibrepulse-operations-api.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=belof
+Group=belof
+WorkingDirectory=/home/belof/fibrepulse
+EnvironmentFile=/home/belof/fibrepulse/.env
+ExecStart=/usr/bin/npm run evidence:poll-official -- config/status-sources.json
