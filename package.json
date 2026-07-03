@@ -7,6 +7,9 @@
   "scripts": {
     "dev:api": "tsx apps/api/src/index.ts",
     "dev:topology-api": "tsx apps/api/src/topologyServer.ts",
+    "dev:operations-api": "tsx apps/api/src/operationsServer.ts",
+    "dev:operations-web": "npm --workspace apps/operations-web run dev",
+    "build:operations-web": "npm --workspace apps/operations-web run build",
     "dev:bgp": "tsx services/bgp-monitor/src/index.ts",
     "db:migrate": "tsx packages/db/src/migrate.ts && tsx packages/db/src/migrateTopology.ts && tsx packages/db/src/migrateEvidence.ts",
     "db:migrate:core": "tsx packages/db/src/migrate.ts",
@@ -16,6 +19,7 @@
     "db:seed:topology": "tsx packages/db/src/seedTopology.ts",
     "topology:import": "tsx scripts/topologyImport.ts",
     "topology:review": "tsx scripts/reviewTopology.ts",
+    "evidence:import": "tsx scripts/importEvidence.ts",
     "check": "tsc --noEmit",
     "format": "prettier --write .",
     "fno:import": "tsx services/bgp-monitor/src/importFnoRegistry.ts",
