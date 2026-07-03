@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev:api": "tsx apps/api/src/index.ts",
+    "dev:topology-api": "tsx apps/api/src/topologyServer.ts",
     "dev:bgp": "tsx services/bgp-monitor/src/index.ts",
     "db:migrate": "tsx packages/db/src/migrate.ts && tsx packages/db/src/migrateTopology.ts",
     "db:migrate:core": "tsx packages/db/src/migrate.ts",
