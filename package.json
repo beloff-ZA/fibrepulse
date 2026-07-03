@@ -7,7 +7,9 @@
   "scripts": {
     "dev:api": "tsx apps/api/src/index.ts",
     "dev:bgp": "tsx services/bgp-monitor/src/index.ts",
-    "db:migrate": "tsx packages/db/src/migrate.ts",
+    "db:migrate": "tsx packages/db/src/migrate.ts && tsx packages/db/src/migrateTopology.ts",
+    "db:migrate:core": "tsx packages/db/src/migrate.ts",
+    "db:migrate:topology": "tsx packages/db/src/migrateTopology.ts",
     "db:seed": "tsx packages/db/src/seed.ts",
     "check": "tsc --noEmit",
     "format": "prettier --write .",
