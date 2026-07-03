@@ -1,0 +1,48 @@
+{
+  "locations": [
+    {
+      "parentCanonicalName": "gauteng",
+      "locationType": "city",
+      "name": "Johannesburg",
+      "canonicalName": "johannesburg",
+      "countryCode": "ZA",
+      "provinceCode": "GP",
+      "verificationStatus": "candidate",
+      "sourceMetadata": {
+        "source": "replace-with-source",
+        "reference": "replace-with-reference",
+        "observedAt": "2026-07-03T00:00:00.000Z"
+      }
+    }
+  ],
+  "relationships": [
+    {
+      "upstreamProvider": "replace-with-fno-name",
+      "downstreamProvider": "replace-with-isp-name",
+      "relationshipType": "provides_access_to",
+      "verificationStatus": "candidate",
+      "confidenceScore": 0.5,
+      "sourceMetadata": {
+        "source": "replace-with-source",
+        "reference": "replace-with-reference",
+        "observedAt": "2026-07-03T00:00:00.000Z"
+      }
+    }
+  ],
+  "footprints": [
+    {
+      "fnoProvider": "replace-with-fno-name",
+      "locationCanonicalName": "johannesburg",
+      "serviceType": "ftth",
+      "footprintStatus": "available",
+      "verificationStatus": "candidate",
+      "confidenceScore": 0.5,
+      "sourceMetadata": {
+        "source": "replace-with-source",
+        "reference": "replace-with-reference",
+        "observedAt": "2026-07-03T00:00:00.000Z"
+      },
+      "ispProviders": ["replace-with-isp-name"]
+    }
+  ]
+}
