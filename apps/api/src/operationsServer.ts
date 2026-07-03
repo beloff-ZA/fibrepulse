@@ -6,6 +6,7 @@ import morgan from "morgan";
 import { config } from "@fibrepulse/config";
 import { topologyRouter } from "./routes/topology.js";
 import { evidenceRouter } from "./routes/evidence.js";
+import { routingRouter } from "./routes/routing.js";
 
 const app = express();
 const port = Number(
@@ -28,25 +29,16 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/api/topology", topologyRouter);
+app.use("/api/evidence", routingRouter);
 app.use("/api/evidence", evidenceRouter);
 
-app.use(
-  (
-    err: unknown,
-    _req: express.Request,
-    res: express.Response,
-    _next: express.NextFunction,
-  ) => {
-    console.error(err);
-    res.status(500).json({
-      error: "internal_server_error",
-      message:
-        err instanceof Error
-          ? err.message
-          : "Unknown operations API error",
-    });
-  },
-);
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error(err);
+  res.status(500).json({
+    error: "internal_server_error",
+    message: err instanceof Error ? err.message : "Unknown operations API error",
+  });
+});
 
 app.listen(port, () => {
   console.log(`FibrePulse operations API listening on port ${port}`);
