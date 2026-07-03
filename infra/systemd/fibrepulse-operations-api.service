@@ -1,0 +1,20 @@
+[Unit]
+Description=FibrePulse Operations API
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=belof
+Group=belof
+WorkingDirectory=/home/belof/fibrepulse
+EnvironmentFile=/home/belof/fibrepulse/.env
+Environment=NODE_ENV=production
+Environment=OPERATIONS_API_PORT=3031
+ExecStart=/usr/bin/npm run dev:operations-api
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

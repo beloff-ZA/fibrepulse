@@ -1,0 +1,35 @@
+{
+  "sources": [
+    {
+      "enabled": false,
+      "sourceKey": "replace-with-stable-source-key",
+      "name": "Replace with official source name",
+      "url": "https://example.invalid/status",
+      "fnoProvider": "replace-with-existing-fno-name",
+      "locationCanonicalName": "gauteng",
+      "trustWeight": 0.9,
+      "confidenceScore": 0.9,
+      "ttlMinutes": 30,
+      "evidenceType": "operator_notice",
+      "rules": [
+        {
+          "pattern": "major outage|service unavailable",
+          "status": "offline"
+        },
+        {
+          "pattern": "degraded|intermittent",
+          "status": "degraded"
+        },
+        {
+          "pattern": "planned maintenance|maintenance in progress",
+          "status": "maintenance"
+        },
+        {
+          "pattern": "all systems operational|no known issues",
+          "status": "online"
+        }
+      ],
+      "fallbackStatus": "unknown"
+    }
+  ]
+}
