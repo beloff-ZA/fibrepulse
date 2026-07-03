@@ -1,0 +1,16 @@
+[Unit]
+Description=FibrePulse BGP and RPKI observation cycle
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=belof
+Group=belof
+WorkingDirectory=/home/belof/fibrepulse
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/npm run dev:bgp
+TimeoutStartSec=12min
+Nice=5
+NoNewPrivileges=true
+PrivateTmp=true
