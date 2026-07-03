@@ -151,7 +151,7 @@ async function main(): Promise<void> {
         const expiresAt = new Date(event.expiresAt);
         if (
           Number.isNaN(expiresAt.getTime()) ||
-          expiresAt <= observedAt
+          expiresAt.getTime() <= observedAt.getTime()
         ) {
           throw new Error("expiresAt must be a valid time after observedAt");
         }
