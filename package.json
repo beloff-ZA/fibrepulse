@@ -8,21 +8,21 @@
     "dev:api": "tsx apps/api/src/index.ts",
     "dev:topology-api": "tsx apps/api/src/topologyServer.ts",
     "dev:bgp": "tsx services/bgp-monitor/src/index.ts",
-    "db:migrate": "tsx packages/db/src/migrate.ts && tsx packages/db/src/migrateTopology.ts",
+    "db:migrate": "tsx packages/db/src/migrate.ts && tsx packages/db/src/migrateTopology.ts && tsx packages/db/src/migrateEvidence.ts",
     "db:migrate:core": "tsx packages/db/src/migrate.ts",
     "db:migrate:topology": "tsx packages/db/src/migrateTopology.ts",
+    "db:migrate:evidence": "tsx packages/db/src/migrateEvidence.ts",
     "db:seed": "tsx packages/db/src/seed.ts",
+    "db:seed:topology": "tsx packages/db/src/seedTopology.ts",
+    "topology:import": "tsx scripts/topologyImport.ts",
+    "topology:review": "tsx scripts/reviewTopology.ts",
     "check": "tsc --noEmit",
     "format": "prettier --write .",
     "fno:import": "tsx services/bgp-monitor/src/importFnoRegistry.ts",
     "fno:discover": "tsx services/bgp-monitor/src/discoverFnoPrefixes.ts",
     "fno:prefixes:import": "tsx services/bgp-monitor/src/importFnoPrefixes.ts"
   },
-  "workspaces": [
-    "apps/*",
-    "services/*",
-    "packages/*"
-  ],
+  "workspaces": ["apps/*", "services/*", "packages/*"],
   "dependencies": {
     "axios": "^1.18.1",
     "cheerio": "^1.2.0",
@@ -50,13 +50,9 @@
     "typescript": "^5.7.2"
   },
   "main": "index.js",
-  "directories": {
-    "doc": "docs"
-  },
+  "directories": {"doc": "docs"},
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "allowScripts": {
-    "esbuild@0.28.1": true
-  }
+  "allowScripts": {"esbuild@0.28.1": true}
 }
