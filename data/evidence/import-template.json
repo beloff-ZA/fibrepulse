@@ -1,0 +1,30 @@
+{
+  "source": {
+    "sourceKey": "operator-status-example",
+    "sourceType": "official_status",
+    "name": "Operator status example",
+    "enabled": true,
+    "trustWeight": 0.9,
+    "sourceMetadata": {
+      "reference": "replace-with-source-reference",
+      "owner": "replace-with-source-owner"
+    }
+  },
+  "events": [
+    {
+      "fnoProvider": "replace-with-fno-name",
+      "locationCanonicalName": "gauteng",
+      "evidenceType": "operator_notice",
+      "observedStatus": "maintenance",
+      "confidenceScore": 0.9,
+      "observedAt": "2026-07-03T10:00:00.000Z",
+      "expiresAt": "2026-07-03T14:00:00.000Z",
+      "externalReference": "replace-with-notice-reference",
+      "deduplicationKey": "replace-with-stable-event-key",
+      "payload": {
+        "summary": "Replace with a short factual summary",
+        "scope": "Replace with the stated scope"
+      }
+    }
+  ]
+}
