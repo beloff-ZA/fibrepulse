@@ -20,6 +20,7 @@
     "topology:import": "tsx scripts/topologyImport.ts",
     "topology:review": "tsx scripts/reviewTopology.ts",
     "evidence:import": "tsx scripts/importEvidence.ts",
+    "evidence:poll-official": "tsx scripts/pollOfficialSources.ts",
     "check": "tsc --noEmit",
     "format": "prettier --write .",
     "fno:import": "tsx services/bgp-monitor/src/importFnoRegistry.ts",
