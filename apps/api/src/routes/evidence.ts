@@ -38,16 +38,9 @@ router.get("/sources", async (_req, res, next) => {
 
 router.get("/events", async (req, res, next) => {
   try {
-    const limit = Math.min(
-      Math.max(Number(req.query.limit ?? 100), 1),
-      500,
-    );
-    const fnoId = req.query.fno_id
-      ? positiveInteger(req.query.fno_id)
-      : null;
-    const ispId = req.query.isp_id
-      ? positiveInteger(req.query.isp_id)
-      : null;
+    const limit = Math.min(Math.max(Number(req.query.limit ?? 100), 1), 500);
+    const fnoId = req.query.fno_id ? positiveInteger(req.query.fno_id) : null;
+    const ispId = req.query.isp_id ? positiveInteger(req.query.isp_id) : null;
     const locationId = req.query.location_id
       ? positiveInteger(req.query.location_id)
       : null;
@@ -98,14 +91,10 @@ router.get("/events", async (req, res, next) => {
           ee.bgp_incident_id,
           ee.created_at
         from evidence_events ee
-        join evidence_sources es
-          on es.id = ee.evidence_source_id
-        left join providers fno
-          on fno.id = ee.fno_provider_id
-        left join providers isp
-          on isp.id = ee.isp_provider_id
-        left join locations l
-          on l.id = ee.location_id
+        join evidence_sources es on es.id = ee.evidence_source_id
+        left join providers fno on fno.id = ee.fno_provider_id
+        left join providers isp on isp.id = ee.isp_provider_id
+        left join locations l on l.id = ee.location_id
         where ($1::bigint is null or ee.fno_provider_id = $1)
           and ($2::bigint is null or ee.isp_provider_id = $2)
           and ($3::bigint is null or ee.location_id = $3)
@@ -138,6 +127,114 @@ router.get("/events", async (req, res, next) => {
   }
 });
 
+router.get("/routing/fnos", async (_req, res, next) => {
+  try {
+    const items = await query(`
+      with latest as (
+        select
+          p.id as fno_id,
+          p.name as fno_name,
+          lbs.prefix,
+          lbs.bgp_status,
+          lbs.rpki_status,
+          lbs.overall_status,
+          lbs.source_confidence,
+          lbs.source_agreement,
+          lbs.source_score,
+          lbs.checked_at
+        from latest_bgp_status lbs
+        join provider_asns pa on pa.asn = lbs.expected_origin_asn
+        join providers p on p.id = pa.provider_id
+        where p.provider_type = 'FNO'
+          and p.display_enabled = true
+      )
+      select
+        fno_id,
+        fno_name,
+        count(*)::int as prefix_count,
+        count(*) filter (where bgp_status = 'valid')::int as bgp_valid_count,
+        count(*) filter (where bgp_status = 'invalid')::int as bgp_invalid_count,
+        count(*) filter (
+          where bgp_status = 'unknown' or bgp_status is null
+        )::int as bgp_unknown_count,
+        count(*) filter (where rpki_status = 'valid')::int as rpki_valid_count,
+        count(*) filter (where rpki_status = 'invalid')::int as rpki_invalid_count,
+        count(*) filter (
+          where rpki_status = 'unknown' or rpki_status is null
+        )::int as rpki_unknown_count,
+        count(*) filter (where overall_status = 'valid')::int as overall_valid_count,
+        count(*) filter (where overall_status = 'invalid')::int as overall_invalid_count,
+        count(*) filter (
+          where overall_status = 'unknown' or overall_status is null
+        )::int as overall_unknown_count,
+        case
+          when count(*) filter (where overall_status = 'invalid') > 0 then 'invalid'
+          when count(*) filter (
+            where overall_status = 'unknown' or overall_status is null
+          ) > 0 then 'unknown'
+          when count(*) > 0 then 'valid'
+          else 'unknown'
+        end as routing_status,
+        max(checked_at) as latest_observed_at,
+        round(avg(source_score)::numeric, 4) as average_source_score
+      from latest
+      group by fno_id, fno_name
+      order by fno_name;
+    `);
+
+    res.json({
+      generated_at: new Date().toISOString(),
+      meaning:
+        "These are current BGP and RPKI routing observations. They do not prove last-mile customer availability.",
+      items,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/routing/prefixes", async (req, res, next) => {
+  try {
+    const limit = Math.min(Math.max(Number(req.query.limit ?? 200), 1), 1000);
+    const items = await query(
+      `
+        select
+          p.id as fno_id,
+          p.name as fno_name,
+          lbs.prefix,
+          lbs.expected_origin_asn,
+          lbs.observed_origin_asns,
+          lbs.bgp_status,
+          lbs.rpki_status,
+          lbs.overall_status,
+          lbs.source_confidence,
+          lbs.source_agreement,
+          lbs.source_score,
+          lbs.message,
+          lbs.checked_at
+        from latest_bgp_status lbs
+        join provider_asns pa on pa.asn = lbs.expected_origin_asn
+        join providers p on p.id = pa.provider_id
+        where p.provider_type = 'FNO'
+          and p.display_enabled = true
+        order by p.name, lbs.prefix
+        limit $1;
+      `,
+      [limit],
+    );
+
+    res.json({
+      generated_at: new Date().toISOString(),
+      meaning:
+        "Prefix observations show routing and RPKI state only, not end-user service availability.",
+      limit,
+      items,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/summary/fnos", async (_req, res, next) => {
   try {
     const items = await query(`
@@ -157,9 +254,8 @@ router.get("/summary/fnos", async (_req, res, next) => {
         max(ee.observed_at) as latest_observed_at,
         coalesce(
           round(
-            avg(
-              ee.confidence_score * es.trust_weight
-            ) filter (where ee.id is not null),
+            avg(ee.confidence_score * es.trust_weight)
+              filter (where ee.id is not null),
             4
           ),
           0
@@ -180,7 +276,7 @@ router.get("/summary/fnos", async (_req, res, next) => {
     res.json({
       generated_at: new Date().toISOString(),
       meaning:
-        "Counts summarise active observations only. They do not declare an FNO online or offline.",
+        "Counts summarise active non-routing evidence events only. Routing observations are available under /api/evidence/routing/fnos.",
       items,
     });
   } catch (error) {
